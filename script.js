@@ -1,40 +1,90 @@
 const toggle = document.querySelector('.nav-toggle');
 const navLinks = document.querySelector('.nav-links');
 
+function isMenuOpen() {
+  return Boolean(navLinks && navLinks.classList.contains('open'));
+}
+
 function closeMobileMenu() {
   if (!toggle || !navLinks) return;
 
-  if (navLinks.classList.contains('open')) {
-    navLinks.classList.remove('open');
-    toggle.setAttribute('aria-expanded', 'false');
-  }
+  navLinks.classList.remove('open');
+  document.body.classList.remove('menu-open');
+  toggle.setAttribute('aria-expanded', 'false');
+}
+
+function openMobileMenu() {
+  if (!toggle || !navLinks) return;
+
+  navLinks.classList.add('open');
+  document.body.classList.add('menu-open');
+  toggle.setAttribute('aria-expanded', 'true');
 }
 
 if (toggle && navLinks) {
+  let startY = 0;
+  let startX = 0;
+  let lastScrollY = window.scrollY;
+
   toggle.addEventListener('click', (event) => {
+    event.preventDefault();
     event.stopPropagation();
 
-    const isOpen = navLinks.classList.toggle('open');
-    toggle.setAttribute('aria-expanded', String(isOpen));
+    if (isMenuOpen()) {
+      closeMobileMenu();
+    } else {
+      openMobileMenu();
+      lastScrollY = window.scrollY;
+    }
   });
 
   navLinks.querySelectorAll('a').forEach((link) => {
     link.addEventListener('click', closeMobileMenu);
   });
 
-  // Close mobile dropdown as soon as the user starts moving the page.
-  // touchmove and wheel are included because some mobile browsers delay the scroll event.
-  ['scroll', 'touchmove', 'wheel', 'resize'].forEach((eventName) => {
-    window.addEventListener(eventName, closeMobileMenu, { passive: true });
-  });
+  document.addEventListener('touchstart', (event) => {
+    if (!isMenuOpen()) return;
 
-  // Also close when tapping anywhere outside the menu.
+    startY = event.touches[0].clientY;
+    startX = event.touches[0].clientX;
+  }, { passive: true, capture: true });
+
+  document.addEventListener('touchmove', (event) => {
+    if (!isMenuOpen()) return;
+
+    const currentY = event.touches[0].clientY;
+    const currentX = event.touches[0].clientX;
+    const movedY = Math.abs(currentY - startY);
+    const movedX = Math.abs(currentX - startX);
+
+    // Close as soon as a real swipe/scroll movement starts.
+    if (movedY > 8 || movedX > 16) {
+      closeMobileMenu();
+    }
+  }, { passive: true, capture: true });
+
+  document.addEventListener('wheel', () => {
+    if (isMenuOpen()) closeMobileMenu();
+  }, { passive: true, capture: true });
+
+  window.addEventListener('scroll', () => {
+    if (!isMenuOpen()) return;
+
+    if (Math.abs(window.scrollY - lastScrollY) > 2) {
+      closeMobileMenu();
+    }
+  }, { passive: true });
+
+  window.addEventListener('resize', closeMobileMenu);
+
   document.addEventListener('click', (event) => {
+    if (!isMenuOpen()) return;
+
     const clickedInsideMenu = navLinks.contains(event.target);
     const clickedToggle = toggle.contains(event.target);
 
     if (!clickedInsideMenu && !clickedToggle) {
       closeMobileMenu();
     }
-  });
+  }, true);
 }
